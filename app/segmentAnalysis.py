@@ -2,7 +2,7 @@ import movingpandas as mpd
 import geopandas as gpd
 import numpy as np
 from rtree import index
-from shapely.geometry import Point, MultiLineString
+from shapely.geometry import Point, MultiLineString, box
 import math
 
 #convert to a line gdf
@@ -18,7 +18,8 @@ def convertToLineGDF(data):
         frame = frame.to_crs('EPSG:3857')
     else:
         frame = frame
-    frame = frame.dissolve(by='trackId').reset_index()
+    #this creates multiline strings by each trackId
+    #frame = frame.dissolve(by='trackId').reset_index()
     if ((int(frame.total_bounds[2]) - int(frame.total_bounds[0])) > 500000) | ((int(frame.total_bounds[3]) - int(frame.total_bounds[1])) > 500000):
         print("Study size is too large, please subset your data to an area smaller than 500,000 metres by 500,000 metres and try again. Try using a smaller number of individuals from the dataset. ")
         exit()
@@ -70,6 +71,9 @@ def cellPointArray(geoframe, reshaped_array, xres, yres, input_qgs_rect):
     # remove rows with missing geometry
     df = df[~df['geometry'].isnull()]
 
+    selected_columns = ["band_1", "band_2", "band_3"]
+    df['intensity'] = (df[selected_columns].sum(axis=1) / (255*3))
+
     #reproject just in case
     if df.crs != 'EPSG:3857':
         df = df.to_crs('EPSG:3857')
@@ -78,35 +82,29 @@ def cellPointArray(geoframe, reshaped_array, xres, yres, input_qgs_rect):
 
 #combine the dataframes together
 def computePointNearest(bandGdf, geoframe, pixel_x_size, pixel_y_size):
-    #this is not working correctly, it is not what I want
-    print(geoframe)
-    idx = index.Index()
-    for i, geometry in enumerate(geoframe['geometry']):
-        print(i)
-        idx.insert(i, geometry.bounds)
-    distance_threshold = 75.0
-    point_counts = []
-    count = 0
+    import time
+    start= time.time()
+    hypotenuse = math.sqrt((pixel_x_size*pixel_x_size) + (pixel_y_size*pixel_y_size))
+    frame = geoframe.dissolve(by='trackId').reset_index()
+    geoframe[['extended_bbox', 'filtered_points_count', 'mean_intensity']] = [[
+        box(*geom.bounds).buffer(hypotenuse),
+        len(bandGdf[bandGdf.geometry.within(box(*geom.bounds).buffer(hypotenuse))]),
+        bandGdf[bandGdf.geometry.within(box(*geom.bounds).buffer(hypotenuse))]['intensity'].mean()
+    ] for geom in geoframe['geometry']]
+    
+    # for i in range(len(geoframe)):
+    #     bounding_box = geoframe['geometry'].iloc[i].bounds
+    #     box_geom = box(*bounding_box)
+    #     extended_bounds_poly = box_geom.buffer(hypotenuse)
+    #     #sindex1 = bandGdf.sindex
+    #     filtered_bands_gdf = len(bandGdf[bandGdf.geometry.within(extended_bounds_poly)])
+    #     #print(len(filtered_bands_gdf))
+    end = time.time()
     print(len(bandGdf))
-    for point in bandGdf['geometry']:
-        print(count, end='')
-        candidate_indices = list(idx.intersection(point.buffer(distance_threshold).bounds))
-        candidate_multilinestrings = geoframe.loc[candidate_indices]
-
-        # Perform the actual distance check
-        within_distance_mask = candidate_multilinestrings['geometry'].distance(point) <= distance_threshold
-
-        # Count the number of points within the distance threshold
-        point_count = sum(within_distance_mask)
-        point_counts.append(point_count)
-        print('\r', end='')
-        count += 1
-    geoframe['point_count'] = point_counts
-    print(geoframe)
+    print(frame)
+    print(end - start)
     exit()
     return geoframe
-
-
 
 
 # merged_gdf = frame.dissolve(by='trackId').reset_index()
