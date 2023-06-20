@@ -1,8 +1,11 @@
+import matplotlib
+import matplotlib.pyplot as plt
+matplotlib.use('agg')
 import movingpandas as mpd
 import geopandas as gpd
 import numpy as np
 from rtree import index
-from shapely.geometry import Point, MultiLineString, box
+from shapely.geometry import Point, box
 from rtree import index
 import math
 
@@ -14,7 +17,7 @@ def convertToLineGDF(data):
 
     crsf = crs_frame.crs
     frame = frame.set_crs(crsf)
-    print(len(frame))
+    
     if frame.crs.to_epsg() != 3857:
         frame = frame.to_crs('EPSG:3857')
     else:
@@ -31,7 +34,6 @@ def cellPointArray(geoframe, reshaped_array, xres, yres, input_qgs_rect):
 
     #get the crs of the original geoframe to return it to the user as it was given
     geo_crs = geoframe.crs
-
     #compute the appropriate pixel size
     pixel_x_size = (input_qgs_rect.xMaximum() - input_qgs_rect.xMinimum()) / (reshaped_array.shape[1])
     pixel_y_size = (input_qgs_rect.yMaximum() - input_qgs_rect.yMinimum()) / (reshaped_array.shape[0])
@@ -78,7 +80,7 @@ def cellPointArray(geoframe, reshaped_array, xres, yres, input_qgs_rect):
     #reproject just in case
     if df.crs != 'EPSG:3857':
         df = df.to_crs('EPSG:3857')
-    print(len(df))
+
     return df, pixel_x_size, pixel_y_size
 
 #combine the dataframes together
@@ -111,9 +113,55 @@ def computePointNearest(bandGdf, geoframe, pixel_x_size, pixel_y_size):
     geoframe['extended_bbox'] = extended_bbox
     geoframe['filtered_points_count'] = filtered_points_count
     geoframe['mean_intensity'] = mean_intensity
+    geoframe['length'] = [geom.length for geom in geoframe['geometry']]
 
     return geoframe
 
+
+#produce graphs and figures
+def produceOutputs(intersection_gdf, moveapps_io):
+    try:
+        print(intersection_gdf)
+        exit()
+        #filter based on only above 0 band values
+        criteria = (intersection_gdf['band_1'] > 0) | (intersection_gdf['band_2'] > 0) | (intersection_gdf['band_3'] > 0)
+
+        #create a filtered version of only points that intersected the heatmap
+        filtered_gdf = intersection_gdf[criteria]
+
+    ############### bar graphs
+        has_intersection = len(filtered_gdf)
+        no_intersection = len(intersection_gdf) - len(filtered_gdf)
+
+        fig, ax = plt.subplots()
+
+        intersect_labs = ['# intersecting pixels', '# not intersecting pixels']
+        intersect_values = [has_intersection, no_intersection]
+        bar_labels = ['# intersecting', '# not intersecting']
+        bar_container = ax.bar(intersect_labs, intersect_values)
+        bar_colours = ['red', 'blue']
+
+        ax.bar(intersect_labs, intersect_values, label=bar_labels, color=bar_colours)
+        ax.bar_label(bar_container, label_type='center')
+        plt.savefig(moveapps_io.create_artifacts_file('intersections.png'), bbox_inches='tight')
+
+    ########################## create histograms for band values
+        #check that it is doing the transformation correctly
+        columns = ['band_1', 'band_2', 'band_3', 'intensity']
+        titles = ['Band 1 RGB Value', 'Band 2 RGB Value', 'Band 3 RGB Value', 'Human Activity Intensity Distribution']
+        filenames = ['band1.png', 'band2.png', 'band3.png', 'intensity.png']
+
+        for column, title, filename in zip(columns, titles, filenames):
+            fig, ax = plt.subplots()
+            ax.hist(intersection_gdf[column], bins=20, log=True)
+            ax.set_xlabel(title)
+            ax.set_ylabel("Log of Count")
+            plt.savefig(moveapps_io.create_artifacts_file(filename), bbox_inches='tight')
+            plt.close(fig)
+        
+    ########################### 
+    except Exception as e:
+        print("Couldn't generate figures. " + str(e))
 
 # merged_gdf = frame.dissolve(by='trackId').reset_index()
 # merged_gdf['t'] = merged_gdf['t'].dt.strftime('%Y-%m-%d %H:%M:%S')

@@ -16,7 +16,7 @@ class App(object):
 
     @hook_impl
     def execute(self, data: TrajectoryCollection, config: dict) -> TrajectoryCollection:
-        var = 0
+        var = 1
         print("Executing...")
         start = time.time()
         if(var == 0):
@@ -41,6 +41,7 @@ class App(object):
             numpy_array, xres, yres, input_qgs_rect = qs.extractRasterBands(strava_raster, geoframe)
             banded_array, pixel_x, pixel_y = sa.cellPointArray(geoframe, numpy_array, xres, yres, input_qgs_rect)
             intersected_gpd = sa.computePointNearest(banded_array, geoframe, pixel_x, pixel_y)
+            sa.produceOutputs(intersected_gpd, self.moveapps_io)
             end = time.time()
             print("Completed in " + str(end - start) + " seconds")
 
