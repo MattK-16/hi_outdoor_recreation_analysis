@@ -21,8 +21,8 @@ def convertToLineGDF(data):
         frame = frame
     #this creates multiline strings by each trackId
     #frame = frame.dissolve(by='trackId').reset_index()
-    if ((int(frame.total_bounds[2]) - int(frame.total_bounds[0])) > 500000) | ((int(frame.total_bounds[3]) - int(frame.total_bounds[1])) > 500000):
-        print("Study size is too large, please subset your data to an area smaller than 500,000 metres by 500,000 metres and try again. Try using a smaller number of individuals from the dataset. ")
+    if (((int(frame.total_bounds[2]) - int(frame.total_bounds[0])) * (int(frame.total_bounds[3]) - int(frame.total_bounds[1]))) > 652000000000):
+        print("Study size is too large, please subset your data to an area smaller than 650 billion metres squared and try again. Try using a smaller number of individuals from the dataset. ")
         exit()
     return frame
 
@@ -83,48 +83,35 @@ def cellPointArray(geoframe, reshaped_array, xres, yres, input_qgs_rect):
 
 #combine the dataframes together
 def computePointNearest(bandGdf, geoframe, pixel_x_size, pixel_y_size):
-    import time
-    start= time.time()
-    hypotenuse = math.sqrt((pixel_x_size*pixel_x_size) + (pixel_y_size*pixel_y_size))
-
-    # Create an R-tree index for spatial querying
-    idx = index.Index()
-    for i, geom in enumerate(bandGdf['geometry']):
-        idx.insert(i, geom.bounds)
-    # Perform spatial queries for each geometry in geoframe
     extended_bbox = []
     filtered_points_count = []
     mean_intensity = []
+    hypotenuse = math.sqrt((pixel_x_size*pixel_x_size) + (pixel_y_size*pixel_y_size))
+    #geoframe = geoframe.dissolve(by="trackId").reset_index()
+
+    #use an rtree
+    idx = index.Index()
+    for i, geom in enumerate(bandGdf['geometry']):
+        idx.insert(i, geom.bounds)
+
+    #perform calculations based on a buffer around each line segment
     for geom in geoframe['geometry']:
         bbox = box(*geom.bounds)
         buffer_geom = bbox.buffer(hypotenuse)
-        # Perform range query on the R-tree index to get candidate indices
+        #range query
         candidate_indices = list(idx.intersection(buffer_geom.bounds))
-        # Filter candidate points using within operation
+        #fliter the points
         filtered_points = bandGdf.iloc[candidate_indices][bandGdf.iloc[candidate_indices].geometry.within(buffer_geom)]
-        # Calculate the required values
+        #get the values and append them to the lists
         extended_bbox.append(buffer_geom)
         filtered_points_count.append(len(filtered_points))
         mean_intensity.append(filtered_points['intensity'].mean())
 
-    # Assign the values to geoframe columns
+    #assign the final values for visualisations
     geoframe['extended_bbox'] = extended_bbox
     geoframe['filtered_points_count'] = filtered_points_count
     geoframe['mean_intensity'] = mean_intensity
 
-    
-    # for i in range(len(geoframe)):
-    #     bounding_box = geoframe['geometry'].iloc[i].bounds
-    #     box_geom = box(*bounding_box)
-    #     extended_bounds_poly = box_geom.buffer(hypotenuse)
-    #     #sindex1 = bandGdf.sindex
-    #     filtered_bands_gdf = len(bandGdf[bandGdf.geometry.within(extended_bounds_poly)])
-    #     #print(len(filtered_bands_gdf))
-    end = time.time()
-    print(len(bandGdf))
-    print(geoframe)
-    print(end - start)
-    exit()
     return geoframe
 
 
