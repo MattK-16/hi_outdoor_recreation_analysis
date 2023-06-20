@@ -3,6 +3,7 @@ import geopandas as gpd
 import numpy as np
 from rtree import index
 from shapely.geometry import Point, MultiLineString, box
+from rtree import index
 import math
 
 #convert to a line gdf
@@ -13,7 +14,7 @@ def convertToLineGDF(data):
 
     crsf = crs_frame.crs
     frame = frame.set_crs(crsf)
-
+    print(len(frame))
     if frame.crs.to_epsg() != 3857:
         frame = frame.to_crs('EPSG:3857')
     else:
@@ -77,7 +78,7 @@ def cellPointArray(geoframe, reshaped_array, xres, yres, input_qgs_rect):
     #reproject just in case
     if df.crs != 'EPSG:3857':
         df = df.to_crs('EPSG:3857')
-
+    print(len(df))
     return df, pixel_x_size, pixel_y_size
 
 #combine the dataframes together
@@ -85,12 +86,32 @@ def computePointNearest(bandGdf, geoframe, pixel_x_size, pixel_y_size):
     import time
     start= time.time()
     hypotenuse = math.sqrt((pixel_x_size*pixel_x_size) + (pixel_y_size*pixel_y_size))
-    frame = geoframe.dissolve(by='trackId').reset_index()
-    geoframe[['extended_bbox', 'filtered_points_count', 'mean_intensity']] = [[
-        box(*geom.bounds).buffer(hypotenuse),
-        len(bandGdf[bandGdf.geometry.within(box(*geom.bounds).buffer(hypotenuse))]),
-        bandGdf[bandGdf.geometry.within(box(*geom.bounds).buffer(hypotenuse))]['intensity'].mean()
-    ] for geom in geoframe['geometry']]
+
+    # Create an R-tree index for spatial querying
+    idx = index.Index()
+    for i, geom in enumerate(bandGdf['geometry']):
+        idx.insert(i, geom.bounds)
+    # Perform spatial queries for each geometry in geoframe
+    extended_bbox = []
+    filtered_points_count = []
+    mean_intensity = []
+    for geom in geoframe['geometry']:
+        bbox = box(*geom.bounds)
+        buffer_geom = bbox.buffer(hypotenuse)
+        # Perform range query on the R-tree index to get candidate indices
+        candidate_indices = list(idx.intersection(buffer_geom.bounds))
+        # Filter candidate points using within operation
+        filtered_points = bandGdf.iloc[candidate_indices][bandGdf.iloc[candidate_indices].geometry.within(buffer_geom)]
+        # Calculate the required values
+        extended_bbox.append(buffer_geom)
+        filtered_points_count.append(len(filtered_points))
+        mean_intensity.append(filtered_points['intensity'].mean())
+
+    # Assign the values to geoframe columns
+    geoframe['extended_bbox'] = extended_bbox
+    geoframe['filtered_points_count'] = filtered_points_count
+    geoframe['mean_intensity'] = mean_intensity
+
     
     # for i in range(len(geoframe)):
     #     bounding_box = geoframe['geometry'].iloc[i].bounds
@@ -101,7 +122,7 @@ def computePointNearest(bandGdf, geoframe, pixel_x_size, pixel_y_size):
     #     #print(len(filtered_bands_gdf))
     end = time.time()
     print(len(bandGdf))
-    print(frame)
+    print(geoframe)
     print(end - start)
     exit()
     return geoframe

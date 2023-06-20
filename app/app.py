@@ -16,7 +16,7 @@ class App(object):
 
     @hook_impl
     def execute(self, data: TrajectoryCollection, config: dict) -> TrajectoryCollection:
-        var = 1
+        var = 0
         print("Executing...")
         start = time.time()
         if(var == 0):
