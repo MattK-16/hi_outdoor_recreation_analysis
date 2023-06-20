@@ -22,9 +22,9 @@ def convertToPointGpd(data):
         frame = frame
     #this ends the program if the dataset is too large, eventually I will subset the data based on the track id or on area
     # in place because later on the blocking of the data fails when the raster is too large
-    # based on some testing, 652 million metres squared is still a serviceable area,
+    # based on some testing, 652 billion metres squared is still a serviceable area,
     if (((int(frame.total_bounds[2]) - int(frame.total_bounds[0])) * (int(frame.total_bounds[3]) - int(frame.total_bounds[1]))) > 652000000000):
-        print("Study size is too large, please subset your data to an area smaller than 650 million metres squared and try again. Try using a smaller number of individuals from the dataset. ")
+        print("Study size is too large, please subset your data to an area smaller than 650 billion metres squared and try again. Try using a smaller number of individuals from the dataset. ")
         exit()
 
     return frame
