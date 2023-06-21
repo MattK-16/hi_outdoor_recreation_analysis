@@ -122,9 +122,8 @@ def computePointNearest(bandGdf, geoframe, pixel_x_size, pixel_y_size):
 def produceOutputs(intersection_gdf, moveapps_io):
     try:
         print(intersection_gdf)
-        exit()
         #filter based on only above 0 band values
-        criteria = (intersection_gdf['band_1'] > 0) | (intersection_gdf['band_2'] > 0) | (intersection_gdf['band_3'] > 0)
+        criteria = (intersection_gdf['mean_intensity'] > 0)
 
         #create a filtered version of only points that intersected the heatmap
         filtered_gdf = intersection_gdf[criteria]
@@ -135,25 +134,25 @@ def produceOutputs(intersection_gdf, moveapps_io):
 
         fig, ax = plt.subplots()
 
-        intersect_labs = ['# intersecting pixels', '# not intersecting pixels']
+        intersect_labs = ['# mean intensity > 0', '# mean intensity <= 0']
         intersect_values = [has_intersection, no_intersection]
-        bar_labels = ['# intersecting', '# not intersecting']
+        bar_labels = ['# mean intensity > 0', '# mean intensity <= 0']
         bar_container = ax.bar(intersect_labs, intersect_values)
         bar_colours = ['red', 'blue']
 
         ax.bar(intersect_labs, intersect_values, label=bar_labels, color=bar_colours)
         ax.bar_label(bar_container, label_type='center')
-        plt.savefig(moveapps_io.create_artifacts_file('intersections.png'), bbox_inches='tight')
+        plt.savefig(moveapps_io.create_artifacts_file('segmentIntensity.png'), bbox_inches='tight')
 
     ########################## create histograms for band values
         #check that it is doing the transformation correctly
-        columns = ['band_1', 'band_2', 'band_3', 'intensity']
-        titles = ['Band 1 RGB Value', 'Band 2 RGB Value', 'Band 3 RGB Value', 'Human Activity Intensity Distribution']
-        filenames = ['band1.png', 'band2.png', 'band3.png', 'intensity.png']
+        columns = ['length', 'mean_intensity', 'mean_intensity']
+        titles = ['Segment Length Distribution (m)', 'Mean Intensity Distribution']
+        filenames = ['segmentLength.png', 'meanIntensity.png']
 
         for column, title, filename in zip(columns, titles, filenames):
             fig, ax = plt.subplots()
-            ax.hist(intersection_gdf[column], bins=20, log=True)
+            ax.hist(intersection_gdf[column], bins=20, log=False)
             ax.set_xlabel(title)
             ax.set_ylabel("Log of Count")
             plt.savefig(moveapps_io.create_artifacts_file(filename), bbox_inches='tight')
@@ -163,13 +162,6 @@ def produceOutputs(intersection_gdf, moveapps_io):
     except Exception as e:
         print("Couldn't generate figures. " + str(e))
 
-# merged_gdf = frame.dissolve(by='trackId').reset_index()
-# merged_gdf['t'] = merged_gdf['t'].dt.strftime('%Y-%m-%d %H:%M:%S')
-# merged_gdf['timestamps'] = merged_gdf['timestamps'].dt.strftime('%Y-%m-%d %H:%M:%S')
-# merged_gdf['prev_t'] = merged_gdf['prev_t'].dt.strftime('%Y-%m-%d %H:%M:%S')
-
-# print(merged_gdf.crs)
-
-# traj = mpd.TrajectoryCollection(frame, "trackId", t="timestamps", crs=frame.crs)
-# print(traj)
-# exit()
+#revert back to movingpandas TrajectoryCollection
+def gpdToMpd(gpd):
+    return mpd.TrajectoryCollection(gpd, "trackId", t="timestamps", crs=gpd.crs)
