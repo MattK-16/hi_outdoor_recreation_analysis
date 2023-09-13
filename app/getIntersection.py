@@ -3,6 +3,9 @@ import pyproj
 import urllib.parse
 import matplotlib
 import matplotlib.pyplot as plt
+from matplotlib.colors import LinearSegmentedColormap
+from matplotlib.cm import ScalarMappable
+import contextily as con
 matplotlib.use('agg')
 import time
 import numpy as np
@@ -256,7 +259,7 @@ def combineFrames(bandGdf, geoframe, pixel_x_size, pixel_y_size):
     return geoframe
 
 #produce graphs and figures
-def produceOutputs(intersection_gdf, moveapps_io):
+def produceOutputs(intersection_gdf, moveapps_io, track_indication):
     try:
         #filter based on only above 0 band values
         criteria = (intersection_gdf['band_1'] > 0) | (intersection_gdf['band_2'] > 0) | (intersection_gdf['band_3'] > 0)
@@ -294,6 +297,118 @@ def produceOutputs(intersection_gdf, moveapps_io):
             plt.savefig(moveapps_io.create_artifacts_file(filename), bbox_inches='tight')
             plt.close(fig)
         
+        if track_indication == "value-two":
+        ########################### maps for tracks
+            #convert band valeus to hex rgb
+            def rgb_to_hex(rgb):
+                return "#{:02X}{:02X}{:02X}".format(int(rgb['band_1']), int(rgb['band_2']), int(rgb['band_3']))
+
+            #get the unique number of tracks
+            unique_track_ids = intersection_gdf['trackId'].unique()
+
+            #approximate the colour scale used by strava for the legend
+            colors = [(1, 1, 1), (0, 0, 1), (0, 0, 0)]#white-blue-black
+            colourmap_name = 'custom_color_map'
+            custom_colourmap = LinearSegmentedColormap.from_list(colourmap_name, colors, N=256).reversed()
+            sm = ScalarMappable(cmap=custom_colourmap, norm=plt.Normalize(vmin=0, vmax=1))
+
+            #create a map for each track_id
+            for track_id in unique_track_ids:
+                #filter by individual 
+                track_gdf = intersection_gdf[intersection_gdf['trackId'] == track_id].copy()
+                
+                #create the colouring column for points on map
+                track_gdf['colouring'] = track_gdf.apply(rgb_to_hex, axis=1)
+                
+                num_excluded = len(track_gdf[track_gdf['colouring'] == '#000000'])
+                total_points = len(track_gdf)
+
+                #remove black points
+                track_gdf = track_gdf[track_gdf['colouring'] != '#000000'].copy()
+                
+                #create subplots
+                fig, ax = plt.subplots(figsize=(8, 6))
+                
+                #plot the points based on the colouring column
+                track_gdf.plot(
+                    ax=ax,
+                    color=track_gdf['colouring'],
+                    markersize=5
+                )
+                
+                #OSM basemap
+                con.add_basemap(ax, source=con.providers.OpenStreetMap.Mapnik)
+                
+                #labels
+                ax.set_title(f'Individual Track ID: {track_id}')
+                ax.set_xlabel("Longitude")
+                ax.set_ylabel("Latitude")
+                leg = plt.colorbar(sm, ax=ax, shrink = 0.4, ticks = [0.0, 1.0])
+                leg.ax.set_yticklabels(["Low Human \nActivity", "High Human \nActivity"])
+
+                textboxtext = f'{num_excluded} null point(s) \nindicating no human \nactivity excluded of \n{total_points} total points \n{((total_points - num_excluded) / total_points * 100):.2f}% of points in \ntrack included'
+
+                #textbox with some brief info
+                props = dict(boxstyle='square', facecolor='white', alpha=0.5)
+                ax.text(0.815, 0.54, textboxtext, transform=plt.gcf().transFigure, fontsize=8,
+                    verticalalignment='top', bbox=props)
+                plt.savefig(moveapps_io.create_artifacts_file(track_id), bbox_inches='tight', dpi = 300)
+                plt.close(fig)
+        else:
+            #convert band valeus to hex rgb
+            def rgb_to_hex(rgb):
+                return "#{:02X}{:02X}{:02X}".format(int(rgb['band_1']), int(rgb['band_2']), int(rgb['band_3']))
+
+            #approximate the colour scale used by strava for the legend
+            colors = [(1, 1, 1), (0, 0, 1), (0, 0, 0)]#white-blue-black
+            colourmap_name = 'custom_color_map'
+            custom_colourmap = LinearSegmentedColormap.from_list(colourmap_name, colors, N=256).reversed()
+            sm = ScalarMappable(cmap=custom_colourmap, norm=plt.Normalize(vmin=0, vmax=1))
+
+            #filter by individual 
+            track_gdf = intersection_gdf.copy()
+
+            #create the colouring column for points on map
+            track_gdf['colouring'] = track_gdf.apply(rgb_to_hex, axis=1)
+
+            num_excluded = len(track_gdf[track_gdf['colouring'] == '#000000'])
+            total_points = len(track_gdf)
+
+            #remove black points
+            track_gdf = track_gdf[track_gdf['colouring'] != '#000000'].copy()
+
+            #create subplots
+            fig, ax = plt.subplots(figsize=(8, 6))
+
+            #plot the points based on the colouring column
+            track_gdf.plot(
+                ax=ax,
+                color=track_gdf['colouring'],
+                markersize=5
+            )
+
+            #OSM basemap
+            con.add_basemap(ax, source=con.providers.OpenStreetMap.Mapnik)
+
+            #labels
+            ax.set_title('All Points')
+            ax.set_xlabel("Longitude")
+            ax.set_ylabel("Latitude")
+            leg = plt.colorbar(sm, ax=ax, shrink = 0.4, ticks = [0.0, 1.0])
+            leg.ax.set_yticklabels(["Low Human \nActivity", "High Human \nActivity"])
+
+            textboxtext = f'{num_excluded} null point(s) \nindicating no human \nactivity excluded of \n{total_points} total points \n{((total_points - num_excluded) / total_points * 100):.2f}% of points \nincluded'
+
+            #textbox with some brief info
+            props = dict(boxstyle='square', facecolor='white', alpha=0.5)
+            ax.text(0.815, 0.54, textboxtext, transform=plt.gcf().transFigure, fontsize=8,
+                verticalalignment='top', bbox=props)
+
+            plt.savefig(moveapps_io.create_artifacts_file("trackMap"), bbox_inches='tight', dpi = 300)
+            plt.close(fig)
+
+
+
     ########################### 
     except Exception as e:
         print("Couldn't generate figures. " + str(e))
