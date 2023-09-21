@@ -3,11 +3,8 @@ import pyproj
 import urllib.parse
 import matplotlib
 import matplotlib.pyplot as plt
-import branca
 import branca.colormap as cm
-import contextily as con
 import folium
-import xyzservices
 matplotlib.use('agg')
 import time
 import numpy as np
@@ -340,7 +337,7 @@ def produceOutputs(intersection_gdf, moveapps_io):
                         folium.Circle(
                             location=(row.geometry.y, row.geometry.x),
                             popup="\nIntensity: " + str(row["intensity"]),
-                            color = working_gdf.iloc[i,65], 
+                            color = row["colouring"], 
                             fill = True,
                             fillOpacity = 1
                         )
