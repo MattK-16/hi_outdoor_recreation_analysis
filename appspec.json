@@ -6,23 +6,6 @@
       "description": "Key-Pair-ID, Signature, and Policy, properly formatted. Please see the app documentation on GitHub for details on how to generate this field.",
       "defaultValue": null,
       "type": "STRING"
-    },
-    {
-      "id": "map",
-      "name": "Map Produced",
-      "description": "Outputs either one map with all tracks contained within it or one map per track submitted.",
-      "defaultValue": "value-one",
-      "type": "RADIOBUTTONS",
-      "options": [
-        {
-          "value": "value-one",
-          "displayText": "One Map"
-        },
-        {
-          "value": "value-two",
-          "displayText": "One Map Per Track"
-        }
-      ]
     }
   ],
   "providedAppFiles": [],
