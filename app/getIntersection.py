@@ -306,19 +306,16 @@ def produceOutputs(intersection_gdf, moveapps_io):
         #get the unique number of tracks
         unique_track_ids = intersection_gdf['trackId'].unique()
         intersection_gdf = intersection_gdf.to_crs("EPSG:4326")
-        print(unique_track_ids)
         #create the colouring column for points on map
         intersection_gdf['colouring'] = intersection_gdf.apply(rgb_to_hex, axis=1)
         #remove black points
         intersection_gdf = intersection_gdf[intersection_gdf['colouring'] != '#000000'].copy()
 
         cent = intersection_gdf.dissolve().centroid
-        # Define the colors
+
         white = '#FFFFFF'
         blue = '#0000FF'
         black = '#000000'
-
-        # Create the colormap
         colours = [black, blue, white]
         colourmap = cm.LinearColormap(colours, vmin=0, vmax=1, max_labels = 2)
         colourmap.caption = "Human Activity Intensity Low (0) to High (1)"
@@ -336,17 +333,13 @@ def produceOutputs(intersection_gdf, moveapps_io):
             if k<11:
                 feature_group = folium.FeatureGroup(individual_id)
                 working_gdf = intersection_gdf[intersection_gdf["trackId"] == individual_id]
-                #print(working_gdf)
                 i = 0
-                for item in working_gdf.geometry:
-                    #print(working_gdf.geometry)
-                    #break
-                    # Place the markers with the popup labels and data
+                for item, row in working_gdf.iterrows():
+                    #Place the markers with the popup labels and data
                     feature_group.add_child(
                         folium.Circle(
-                            location=(item.y, item.x),
-                            popup="Coordinates: "
-                            + str(item),
+                            location=(row.geometry.y, row.geometry.x),
+                            popup="\nIntensity: " + str(row["intensity"]),
                             color = working_gdf.iloc[i,65], 
                             fill = True,
                             fillOpacity = 1
