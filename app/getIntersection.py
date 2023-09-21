@@ -3,6 +3,11 @@ import pyproj
 import urllib.parse
 import matplotlib
 import matplotlib.pyplot as plt
+import branca
+import branca.colormap as cm
+import contextily as con
+import folium
+import xyzservices
 matplotlib.use('agg')
 import time
 import numpy as np
@@ -293,11 +298,67 @@ def produceOutputs(intersection_gdf, moveapps_io):
             ax.set_ylabel("Log of Count")
             plt.savefig(moveapps_io.create_artifacts_file(filename), bbox_inches='tight')
             plt.close(fig)
+    ########################### making map
+        #convert band valeus to hex rgb
+        def rgb_to_hex(rgb):
+            return "#{:02X}{:02X}{:02X}".format(int(rgb['band_1']), int(rgb['band_2']), int(rgb['band_3']))
+
+        #get the unique number of tracks
+        unique_track_ids = intersection_gdf['trackId'].unique()
+        intersection_gdf = intersection_gdf.to_crs("EPSG:4326")
+        #create the colouring column for points on map
+        intersection_gdf['colouring'] = intersection_gdf.apply(rgb_to_hex, axis=1)
+        #remove black points
+        intersection_gdf = intersection_gdf[intersection_gdf['colouring'] != '#000000'].copy()
+
+        cent = intersection_gdf.dissolve().centroid
+
+        white = '#FFFFFF'
+        blue = '#0000FF'
+        black = '#000000'
+        colours = [black, blue, white]
+        colourmap = cm.LinearColormap(colours, vmin=0, vmax=1, max_labels = 2)
+        colourmap.caption = "Human Activity Intensity Low (0) to High (1)"
+
+        m = folium.Map(
+            location=[cent.y[0], cent.x[0]],
+            zoom_start=11,
+            tiles="OpenStreetMap",
+            attr="(c) OpenStreetMap",
+        )
         
-    ########################### 
+        k = 0
+        for individual_id in unique_track_ids:
+            k += 1
+            if k<11:
+                feature_group = folium.FeatureGroup(individual_id)
+                working_gdf = intersection_gdf[intersection_gdf["trackId"] == individual_id]
+                i = 0
+                for item, row in working_gdf.iterrows():
+                    #Place the markers with the popup labels and data
+                    feature_group.add_child(
+                        folium.Circle(
+                            location=(row.geometry.y, row.geometry.x),
+                            popup="\nIntensity: " + str(row["intensity"]),
+                            color = working_gdf.iloc[i,65], 
+                            fill = True,
+                            fillOpacity = 1
+                        )
+                    )
+                    i = i + 1
+                feature_group.add_to(m)
+                i = 0
+
+        folium.LayerControl(position="topright").add_to(m)
+        m.add_child(colourmap)
+        
+        m.save(moveapps_io.create_artifacts_file('map.html'))
+
     except Exception as e:
         print("Couldn't generate figures. " + str(e))
         
 #revert back to movingpandas TrajectoryCollection
 def gpdToMpd(gpd):
+    gpd = gpd.to_crs('EPSG:4326')
     return mpd.TrajectoryCollection(gpd, "trackId", t="timestamps", crs=gpd.crs)
+    
