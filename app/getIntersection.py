@@ -16,6 +16,8 @@ from scipy.spatial import cKDTree
 import math
 import os
 
+#emac23 % docker build -t emac23 --file=Dockerfile_unittest . 
+
 #convert the movingpandas trajectorycollection to a geopandas dataframe to work with
 def convertToGeoPandasFrame(data):
     #read the testing dataset
