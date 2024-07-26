@@ -23,5 +23,5 @@ jobs:
         with:
           context: .
           platforms: linux/amd64
-          file: ./Dockerfile_unittest
+          file: ./Dockerfile
           push: false
