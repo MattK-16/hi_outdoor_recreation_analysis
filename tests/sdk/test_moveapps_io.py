@@ -12,9 +12,9 @@ class TestMoveAppsIo(TestCase):
     def test_create_artifacts_file(self):
         # execute
         actual = self.sut.create_artifacts_file('artifact-file.xyz')
-
+        expected = os.path.join(ROOT_DIR, 'tests/resources/output/artifact-file.xyz')
         # verify
-        self.assertEqual(os.path.join(ROOT_DIR, 'tests/resources/output/artifact-file.xyz'), actual)
+        self.assertEqual(os.path.normpath(expected), os.path.normpath(actual))
 
     def test_get_app_file_path_provided_only(self):
         # prepare

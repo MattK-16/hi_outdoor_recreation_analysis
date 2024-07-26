@@ -15,13 +15,13 @@ from shapely.geometry import Point
 from scipy.spatial import cKDTree
 import math
 import os
-
 #emac23 % docker build -t emac23 --file=Dockerfile_unittest . 
 
 #convert the movingpandas trajectorycollection to a geopandas dataframe to work with
 def convertToGeoPandasFrame(data):
     #read the testing dataset
     traj = data
+    col_name = traj.get_traj_id_col()
 
     #convert the trajectory collection to a dataframe
     frame = traj.to_point_gdf()
@@ -37,7 +37,7 @@ def convertToGeoPandasFrame(data):
         print("Study size is too large, please subset your data to an area smaller than 500,000 metres by 500,000 metres and try again. Try using a smaller number of individuals from the dataset. ")
         exit()
 
-    return frame
+    return frame, col_name
 
 #initialize the qgis environment
 def qgsAppInit():
@@ -260,7 +260,7 @@ def combineFrames(bandGdf, geoframe, pixel_x_size, pixel_y_size):
     return geoframe
 
 #produce graphs and figures
-def produceOutputs(intersection_gdf, moveapps_io):
+def produceOutputs(intersection_gdf, moveapps_io, col_name):
     try:
         #filter based on only above 0 band values
         criteria = (intersection_gdf['band_1'] > 0) | (intersection_gdf['band_2'] > 0) | (intersection_gdf['band_3'] > 0)
@@ -301,16 +301,18 @@ def produceOutputs(intersection_gdf, moveapps_io):
         #convert band valeus to hex rgb
         def rgb_to_hex(rgb):
             return "#{:02X}{:02X}{:02X}".format(int(rgb['band_1']), int(rgb['band_2']), int(rgb['band_3']))
-
+        
         #get the unique number of tracks
-        unique_track_ids = intersection_gdf['trackId'].unique()
-        intersection_gdf = intersection_gdf.to_crs("EPSG:4326")
+        unique_track_ids = intersection_gdf[col_name].unique()
+        intersection_gdf = intersection_gdf.to_crs("EPSG:3857")
         #create the colouring column for points on map
         intersection_gdf['colouring'] = intersection_gdf.apply(rgb_to_hex, axis=1)
         #remove black points
         intersection_gdf = intersection_gdf[intersection_gdf['colouring'] != '#000000'].copy()
-
+        
         cent = intersection_gdf.dissolve().centroid
+        intersection_gdf = intersection_gdf.to_crs("EPSG:4326")
+        cent = cent.to_crs("EPSG:4326")
 
         white = '#FFFFFF'
         blue = '#0000FF'
@@ -318,7 +320,6 @@ def produceOutputs(intersection_gdf, moveapps_io):
         colours = [black, blue, white]
         colourmap = cm.LinearColormap(colours, vmin=0, vmax=1, max_labels = 2)
         colourmap.caption = "Human Activity Intensity Low (0) to High (1)"
-
         m = folium.Map(
             location=[cent.y[0], cent.x[0]],
             zoom_start=11,
@@ -331,7 +332,7 @@ def produceOutputs(intersection_gdf, moveapps_io):
             k += 1
             if k<11:
                 feature_group = folium.FeatureGroup(individual_id)
-                working_gdf = intersection_gdf[intersection_gdf["trackId"] == individual_id]
+                working_gdf = intersection_gdf[intersection_gdf[col_name] == individual_id]
                 i = 0
                 for item, row in working_gdf.iterrows():
                     #Place the markers with the popup labels and data
@@ -357,7 +358,7 @@ def produceOutputs(intersection_gdf, moveapps_io):
         print("Couldn't generate figures. " + str(e))
         
 #revert back to movingpandas TrajectoryCollection
-def gpdToMpd(gpd):
+def gpdToMpd(gpd, col_name):
     gpd = gpd.to_crs('EPSG:4326')
-    return mpd.TrajectoryCollection(gpd, "trackId", t="timestamps", crs=gpd.crs)
+    return mpd.TrajectoryCollection(gpd, col_name, t="timestamps", crs=gpd.crs)
     
