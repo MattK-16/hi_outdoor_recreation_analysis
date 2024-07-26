@@ -33,24 +33,24 @@ class MyTestCase(unittest.TestCase):
         expectedGdf = expected.to_point_gdf()
         actualGdf = actual.to_point_gdf()
         actCols = len(actualGdf.iloc[0])
-        expectedList.append(expectedGdf.iloc[expectedLength-1][0])
-        actualList.append(actualGdf.iloc[actualLength-1][0])
+        expectedList.append(expectedGdf.iloc[expectedLength-1].iloc[0])
+        actualList.append(actualGdf.iloc[actualLength-1].iloc[0])
 
         #checks a 500 column row coordinates at random within the dataset excluding the 7 columns that I have changed or added inlcuding point, distance, intensity, geometry, band 1, band 2, band 3, and band 4
         for i in range(500):
             randRow = random.randint(0, actualLength - 1)
             randCol = random.randint(0, actCols - 8)
-            if pd.isna(actualGdf.iloc[randRow][randCol]):
+            if pd.isna(actualGdf.iloc[randRow].iloc[randCol]):
                 continue
             else:
-                expectedList.append(expectedGdf.iloc[randRow][randCol])
-                actualList.append(actualGdf.iloc[randRow][randCol]) 
+                expectedList.append(expectedGdf.iloc[randRow].iloc[randCol])
+                actualList.append(actualGdf.iloc[randRow].iloc[randCol]) 
 
         #check the list
         self.assertListEqual(expectedList, actualList)
 
         #geometries should be unequal between the expected and actual
-        self.assertNotEqual(expectedGdf.iloc[actualLength-1][actCols-7], actualGdf.iloc[actualLength-1][actCols-7])
+        self.assertNotEqual(expectedGdf.iloc[actualLength-1].iloc[actCols-7], actualGdf.iloc[actualLength-1].iloc[actCols-7])
         
 if __name__ == '__main__':
     unittest.main()
