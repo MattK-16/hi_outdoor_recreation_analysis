@@ -11,7 +11,7 @@ print("Conducting unit tests. ")
 class MyTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
-        os.environ['APP_ARTIFACTS_DIR'] = os.path.join('C:/Users/matth/hi_outdoor_recreation_analysis', 'tests/resources/output')
+        os.environ['APP_ARTIFACTS_DIR'] = os.path.join(os.path.normpath(ROOT_DIR), os.path.normpath('tests/resources/output'))
         self.sut = App(moveapps_io=MoveAppsIo())  
 
     #Checks the input file compared to the output after it was run
