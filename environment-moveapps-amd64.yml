@@ -17,3 +17,4 @@ dependencies:
   - pluggy
   - python-dotenv
   - python=3.11
+  - deprecated
