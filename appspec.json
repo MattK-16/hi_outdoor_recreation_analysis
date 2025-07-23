@@ -5,7 +5,7 @@
       "name": "Strava Cookie Values",
       "description": "Key-Pair-ID, Signature, and Policy, properly formatted. Please see the app documentation on GitHub for details on how to generate this field.",
       "defaultValue": null,
-      "type": "STRING"
+      "type": "SECRET"
     }
   ],
   "providedAppFiles": [],
